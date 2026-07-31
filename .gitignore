@@ -1,0 +1,7 @@
+converter_stats.json
+leaderboard.json
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+.env
