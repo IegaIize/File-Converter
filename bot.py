@@ -8,7 +8,7 @@ import urllib.request
 import urllib.parse
 from datetime import datetime, timedelta
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
+BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"
 BASE_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 STATS_FILE = "converter_stats.json"
 LEADERBOARD_FILE = "leaderboard.json"
