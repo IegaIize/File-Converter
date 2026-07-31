@@ -8,7 +8,7 @@ import urllib.request
 import urllib.parse
 from datetime import datetime, timedelta
 
-BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"
+BOT_TOKEN = "8891927373:AAGOcevXraDdZQ34ZrglDbYYSon0NdC41QQ"
 BASE_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 STATS_FILE = "converter_stats.json"
 LEADERBOARD_FILE = "leaderboard.json"
@@ -455,33 +455,19 @@ def get_leaderboard():
     return top_10
 
 def extract_numbers(text):
-    lines = text.strip().split('\n')
-    all_parts = []
-    for line in lines:
-        parts = line.split(',')
-        for part in parts:
-            part = part.strip().strip('"').strip("'").strip()
-            if part:
-                all_parts.append(part)
-    numbers = []
-    for part in all_parts:
-        clean = re.sub(r'[^\d]', '', part)
-        if 7 <= len(clean) <= 15:
-            if part.startswith('+'):
-                clean = '+' + clean
-            numbers.append(clean)
+    candidates = re.findall(r'(?<!\d)(\+?\d{7,15})(?!\d)', text)
     seen = set()
-    unique = []
-    for n in numbers:
+    numbers = []
+    for n in candidates:
         if n not in seen:
             seen.add(n)
-            unique.append(n)
-    return '\n'.join(unique)
+            numbers.append(n)
+    return '\n'.join(numbers)
 
 def detect_country(phone):
     phone_clean = re.sub(r'[^\d]', '', phone)
     for code in sorted(COUNTRY_CODES.keys(), key=len, reverse=True):
-        if phone_clean.startswith(code) or phone.startswith('+' + code):
+        if phone_clean.startswith(code):
             return COUNTRY_CODES[code]
     if phone_clean.startswith('0'):
         return {'name': 'Local', 'code': 'UN'}
@@ -585,7 +571,7 @@ def handle_update(update):
                 
                 user_files.pop(uid, None)
                 country = detect_dominant_country(converted)
-                total_lines = len(converted.split('\n'))
+                total_lines = len(converted.split('\n')) if converted else 0
                 flag_html = get_flag_html(country['code'])
                 
                 user_files[uid] = {
@@ -597,7 +583,7 @@ def handle_update(update):
                 }
                 update_stats(user_id, username)
                 
-                preview = converted[:400]
+                preview = converted[:400] if converted else ""
                 if len(converted) > 400:
                     preview += f"\n... (+{len(converted)-400} chars)"
                 
@@ -621,6 +607,10 @@ def handle_update(update):
             file_id = doc["file_id"]
             original_filename = doc.get("file_name", "file.txt")
             
+            # Eski dosyayı sistemden tamamen unut
+            user_files.pop(uid, None)
+            pending_files.pop(uid, None)
+            
             result = send_message(chat_id, f"{E['processing']} <b>Processing file...</b>", None)
             if result and result.get("ok"):
                 pending_files[uid] = result["result"]["message_id"]
@@ -639,13 +629,12 @@ def handle_update(update):
             mode = user_modes.get(uid, 'number')
             try:
                 converted = convert_file(file_bytes, original_filename, mode)
-                user_files.pop(uid, None)
                 
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
                 base_name = original_filename.rsplit('.', 1)[0]
                 new_filename = f"{base_name}_converted_{timestamp}.txt"
                 country = detect_dominant_country(converted)
-                total_lines = len(converted.split('\n'))
+                total_lines = len(converted.split('\n')) if converted else 0
                 flag_html = get_flag_html(country['code'])
                 
                 user_files[uid] = {
@@ -657,7 +646,7 @@ def handle_update(update):
                 }
                 update_stats(user_id, username)
                 
-                preview = converted[:400]
+                preview = converted[:400] if converted else ""
                 if len(converted) > 400:
                     preview += f"\n... (+{len(converted)-400} chars)"
                 
@@ -694,6 +683,7 @@ def handle_update(update):
         user_id = query["from"]["id"]
         uid = str(user_id)
         data = query["data"]
+        username = query["from"].get("username") or query["from"].get("first_name", f"ID:{user_id}")
         answer_callback(query["id"])
         
         if data == "convert_now":
@@ -752,7 +742,7 @@ def handle_update(update):
             fd = user_files[uid]
             caption = f"<blockquote>{fd['flag_html']} <b>Region:</b> <b>{fd['country']['name']}</b>\n{E['chart']} <b>Total Count:</b> <b>{fd['total']}</b></blockquote>"
             send_document(chat_id, fd['text'].encode('utf-8'), fd['filename'], caption)
-            user_files.pop(uid, None)
+            user_files.pop(uid, None)  # indirdikten sonra da unut
             answer_callback(query["id"], "✅ File sent!")
 
 def main():
